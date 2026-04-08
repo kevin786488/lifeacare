@@ -10,16 +10,17 @@ import {
   ScrollView 
 } from 'react-native';
 import { HabitContext } from '../context/HabitContext';
+import { Ionicons } from '@expo/vector-icons';
 
 const categories = [
-  { id: '1', name: 'Salud Física', emoji: '💪', color: '#ef4444' },
-  { id: '2', name: 'Salud Mental', emoji: '🧠', color: '#8b5cf6' },
-  { id: '3', name: 'Productividad', emoji: '📈', color: '#eab308' },
-  { id: '4', name: 'Bienestar', emoji: '🌱', color: '#10b981' },
-  { id: '5', name: 'Hábitos Diarios', emoji: '🌅', color: '#3b82f6' },
+  { id: '1', name: 'Salud Física',    icon: 'fitness',          color: '#10b981' },
+  { id: '2', name: 'Salud Mental',    icon: 'brain',            color: '#6366f1' },
+  { id: '3', name: 'Productividad',   icon: 'trending-up',      color: '#eab308' },
+  { id: '4', name: 'Bienestar',       icon: 'heart',            color: '#14b8a6' },
+  { id: '5', name: 'Hábitos Diarios', icon: 'sunny',            color: '#3b82f6' },
 ];
 
-const forbiddenWords = ['fumar', 'cigarrillo', 'alcohol', 'droga', 'jugar', 'apostar', 'porno', 'masturbar', 'vicio', 'maldad'];
+const forbiddenWords = ['fumar', 'cigarrillo', 'alcohol', 'droga', 'marihuana', 'jugar', 'apostar', 'porno', 'masturbar', 'vicio', 'maldad', 'malo'];
 
 export default function AddHabitScreen({ navigation }) {
   const { addHabit } = useContext(HabitContext);
@@ -40,14 +41,14 @@ export default function AddHabitScreen({ navigation }) {
     }
 
     if (!selectedCategory) {
-      Alert.alert('Error', 'Debes seleccionar una categoría');
+      Alert.alert('Error', 'Por favor selecciona una categoría');
       return;
     }
 
     if (!isValidHabit(name)) {
       Alert.alert(
-        'Hábito no permitido', 
-        'Esta app solo permite hábitos positivos y saludables.\n\nPor favor elige un hábito constructivo.',
+        'Hábito no permitido',
+        'Esta aplicación solo permite hábitos positivos y constructivos.\n\nPor favor elige un hábito saludable.',
         [{ text: 'Entendido' }]
       );
       return;
@@ -57,18 +58,14 @@ export default function AddHabitScreen({ navigation }) {
       name: name.trim(),
       description: description.trim(),
       category: selectedCategory.name,
-      categoryEmoji: selectedCategory.emoji,
+      categoryIcon: selectedCategory.icon,
       categoryColor: selectedCategory.color,
     });
 
-    Alert.alert('¡Hábito creado!', `${name} ha sido añadido correctamente`, [
-      { 
-        text: 'OK', 
-        onPress: () => navigation.goBack() 
-      }
+    Alert.alert('¡Éxito!', `"${name}" ha sido creado correctamente`, [
+      { text: 'OK', onPress: () => navigation.goBack() }
     ]);
 
-    // Limpiar formulario
     setName('');
     setDescription('');
     setSelectedCategory(null);
@@ -76,10 +73,14 @@ export default function AddHabitScreen({ navigation }) {
 
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.form}>
-        <Text style={styles.title}>Nuevo Hábito Positivo</Text>
+      <View style={styles.header}>
+        <Ionicons name="add-circle-outline" size={60} color="#10b981" />
+        <Text style={styles.headerTitle}>Nuevo Hábito</Text>
+        <Text style={styles.headerSubtitle}>Elige una categoría positiva</Text>
+      </View>
 
-        {/* Selector de Categoría */}
+      <View style={styles.form}>
+        {/* Categorías */}
         <Text style={styles.label}>Categoría</Text>
         <View style={styles.categoriesContainer}>
           {categories.map((cat) => (
@@ -91,21 +92,32 @@ export default function AddHabitScreen({ navigation }) {
               ]}
               onPress={() => setSelectedCategory(cat)}
             >
-              <Text style={styles.categoryEmoji}>{cat.emoji}</Text>
-              <Text style={styles.categoryName}>{cat.name}</Text>
+              <Ionicons 
+                name={cat.icon} 
+                size={32} 
+                color={selectedCategory?.id === cat.id ? "#fff" : cat.color} 
+              />
+              <Text style={[
+                styles.categoryName,
+                selectedCategory?.id === cat.id && styles.categoryNameSelected
+              ]}>
+                {cat.name}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
 
+        {/* Nombre */}
         <Text style={styles.label}>Nombre del hábito</Text>
         <TextInput
           style={styles.input}
-          placeholder="Ej: Beber 2 litros de agua"
+          placeholder="Ej: Beber 2 litros de agua al día"
           value={name}
           onChangeText={setName}
-          maxLength={60}
+          maxLength={65}
         />
 
+        {/* Descripción */}
         <Text style={styles.label}>Descripción (opcional)</Text>
         <TextInput
           style={[styles.input, styles.textArea]}
@@ -113,15 +125,17 @@ export default function AddHabitScreen({ navigation }) {
           value={description}
           onChangeText={setDescription}
           multiline
-          numberOfLines={3}
+          numberOfLines={4}
         />
 
+        {/* Botón Crear */}
         <TouchableOpacity 
-          style={[styles.addButton, !selectedCategory && styles.addButtonDisabled]} 
+          style={[styles.createButton, (!selectedCategory || !name.trim()) && styles.createButtonDisabled]} 
           onPress={handleAddHabit}
-          disabled={!selectedCategory}
+          disabled={!selectedCategory || !name.trim()}
         >
-          <Text style={styles.addButtonText}>Crear Hábito</Text>
+          <Ionicons name="checkmark-circle" size={24} color="#fff" />
+          <Text style={styles.createButtonText}>Crear Hábito</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -131,78 +145,94 @@ export default function AddHabitScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#f0fdf4',
+  },
+  header: {
+    alignItems: 'center',
+    paddingTop: 50,
+    paddingBottom: 30,
+    backgroundColor: '#ffffff',
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#166534',
+    marginTop: 16,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: '#4ade80',
+    marginTop: 6,
   },
   form: {
     padding: 20,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1e2937',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
   label: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
-    marginTop: 16,
+    color: '#166534',
+    marginBottom: 10,
+    marginTop: 20,
   },
   categoriesContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 16,
   },
   categoryButton: {
     width: '48%',
-    backgroundColor: '#fff',
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 12,
+    backgroundColor: '#ffffff',
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    marginBottom: 14,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderColor: '#d1fae5',
   },
   categoryButtonSelected: {
-    borderColor: '#4F46E5',
-    backgroundColor: '#f0f0ff',
-  },
-  categoryEmoji: {
-    fontSize: 28,
-    marginBottom: 6,
+    backgroundColor: '#10b981',
+    borderColor: '#10b981',
   },
   categoryName: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
+    color: '#166534',
+    marginTop: 10,
     textAlign: 'center',
-    color: '#374151',
+  },
+  categoryNameSelected: {
+    color: '#ffffff',
   },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 12,
-    padding: 14,
+    borderColor: '#86efac',
+    borderRadius: 14,
+    padding: 16,
     fontSize: 16,
+    color: '#166534',
   },
   textArea: {
-    height: 90,
+    height: 120,
     textAlignVertical: 'top',
   },
-  addButton: {
-    backgroundColor: '#4F46E5',
-    padding: 16,
-    borderRadius: 12,
+  createButton: {
+    backgroundColor: '#10b981',
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 32,
+    justifyContent: 'center',
+    padding: 18,
+    borderRadius: 16,
+    marginTop: 40,
+    gap: 8,
   },
-  addButtonDisabled: {
-    backgroundColor: '#9ca3af',
+  createButtonDisabled: {
+    backgroundColor: '#86efac',
   },
-  addButtonText: {
+  createButtonText: {
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
