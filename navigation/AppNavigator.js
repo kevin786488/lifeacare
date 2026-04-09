@@ -10,26 +10,27 @@ const Stack = createNativeStackNavigator();
 
 export default function AppNavigator() {
   return (
-    <Stack.Navigator 
+    <Stack.Navigator
       initialRouteName="Home"
       screenOptions={{
-        headerStyle: { backgroundColor: '#4F46E5' },
-        headerTintColor: '#fff',
-        headerTitleStyle: { fontWeight: 'bold' },
+        headerStyle: { backgroundColor: '#f0fdf4' },
+        headerTintColor: '#166534',
+        headerTitleStyle: { fontWeight: 'bold', color: '#166534' },
+        headerShadowVisible: false, // sin línea separadora, se ve más limpio
       }}
     >
-      <Stack.Screen 
-        name="Home" 
+      <Stack.Screen
+        name="Home"
         component={HomeScreen}
-        options={{ title: 'Mis Hábitos' }}
+        options={{ headerShown: false }} // HomeScreen ya tiene su propio título "LifeCare"
       />
-      <Stack.Screen 
-        name="AddHabit" 
+      <Stack.Screen
+        name="AddHabit"
         component={AddHabitScreen}
         options={{ title: 'Nuevo Hábito' }}
       />
-      <Stack.Screen 
-        name="Stats" 
+      <Stack.Screen
+        name="Stats"
         component={StatsScreen}
         options={{ title: 'Estadísticas' }}
       />
