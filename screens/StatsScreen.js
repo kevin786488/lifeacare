@@ -1,14 +1,14 @@
 // screens/StatsScreen.js
-import React, { useContext, useMemo, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useMemo, useState } from 'react';
 import {
-  View,
-  Text,
   ScrollView,
   StyleSheet,
+  Text,
   TouchableOpacity,
+  View,
 } from 'react-native';
-import { HabitContext } from '../context/HabitContext';
-import { Ionicons } from '@expo/vector-icons';
+import { useHabits } from '../context/HabitContext';
 
 const MONTHS_ES = [
   'Enero','Febrero','Marzo','Abril','Mayo','Junio',
@@ -17,14 +17,14 @@ const MONTHS_ES = [
 const DAYS_ES = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
 
 export default function StatsScreen() {
-  const { habits } = useContext(HabitContext);
+  const { habits } = useHabits();
 
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
 
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
-  const [selectedHabit, setSelectedHabit] = useState('all'); // 'all' | index string
+  const [selectedHabit, setSelectedHabit] = useState('all');
 
   // ── Estadísticas generales ──────────────────────────────────────────────────
   const totalHabits = habits.length;
@@ -67,9 +67,9 @@ export default function StatsScreen() {
       check.setDate(check.getDate() - 1);
     }
     return count;
-  }, [habits, todayStr]);
+  }, [habits]);
 
-  // ── Calendario ──────────────────────────────────────────────────────────────
+  // ── Navegación de mes ───────────────────────────────────────────────────────
   function changeMonth(dir) {
     let m = viewMonth + dir;
     let y = viewYear;
@@ -79,6 +79,12 @@ export default function StatsScreen() {
     setViewYear(y);
   }
 
+  function goToToday() {
+    setViewMonth(today.getMonth());
+    setViewYear(today.getFullYear());
+  }
+
+  // ── Datos de un día ─────────────────────────────────────────────────────────
   function getDayData(dateStr) {
     if (selectedHabit === 'all') {
       const done = habits.filter(h => h.completedDates?.includes(dateStr)).length;
@@ -89,6 +95,7 @@ export default function StatsScreen() {
     return { done, total: 1 };
   }
 
+  // ── Construcción de celdas ──────────────────────────────────────────────────
   function buildCalendarDays() {
     const firstDay = new Date(viewYear, viewMonth, 1).getDay();
     const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
@@ -98,7 +105,6 @@ export default function StatsScreen() {
 
     const cells = [];
 
-    // Empty leading cells
     for (let i = 0; i < firstDay; i++) {
       cells.push({ key: `empty-${i}`, empty: true });
     }
@@ -117,6 +123,7 @@ export default function StatsScreen() {
       let type = 'future';
       let done = 0;
       let total = habits.length;
+      let habitsDone = [];
 
       if (!isFuture && habits.length > 0) {
         const data = getDayData(dateStr);
@@ -125,15 +132,54 @@ export default function StatsScreen() {
         if (done === total && total > 0) type = 'full';
         else if (done > 0) type = 'partial';
         else type = 'none';
+
+        if (selectedHabit === 'all') {
+          habitsDone = habits.map(h => h.completedDates?.includes(dateStr) ?? false);
+        }
+      } else if (!isFuture && habits.length === 0) {
+        type = 'none';
       }
 
-      cells.push({ key: dateStr, day: d, type, isToday, done, total, isFuture });
+      cells.push({ key: dateStr, day: d, type, isToday, done, total, isFuture, habitsDone });
     }
 
     return cells;
   }
 
   const calendarDays = buildCalendarDays();
+
+  // ── Resumen mensual ─────────────────────────────────────────────────────────
+  const monthSummary = useMemo(() => {
+    if (habits.length === 0) return null;
+    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+    const isFutureMonth =
+      viewYear > today.getFullYear() ||
+      (viewYear === today.getFullYear() && viewMonth > today.getMonth());
+
+    let completedDays = 0;
+    let totalPastDays = 0;
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const m = String(viewMonth + 1).padStart(2, '0');
+      const dd = String(d).padStart(2, '0');
+      const dateStr = `${viewYear}-${m}-${dd}`;
+      const isFuture =
+        isFutureMonth ||
+        (viewYear === today.getFullYear() &&
+          viewMonth === today.getMonth() &&
+          d > today.getDate());
+
+      if (!isFuture) {
+        totalPastDays++;
+        const { done, total } = getDayData(dateStr);
+        if (total > 0 && done > 0) completedDays++;
+      }
+    }
+
+    if (totalPastDays === 0) return null;
+    const pct = Math.round((completedDays / totalPastDays) * 100);
+    return `${pct}% de días con progreso este mes`;
+  }, [habits, viewYear, viewMonth, selectedHabit]);
 
   // ── Mensaje motivacional ────────────────────────────────────────────────────
   function motivationMessage() {
@@ -163,12 +209,10 @@ export default function StatsScreen() {
         </Text>
         <Text style={styles.mainPercentage}>{completionRateToday}% completado</Text>
 
-        {/* Barra de progreso */}
         <View style={styles.progressBarBg}>
           <View style={[styles.progressBar, { width: `${completionRateToday}%` }]} />
         </View>
 
-        {/* Racha */}
         {streak > 0 && (
           <View style={styles.streakRow}>
             <View style={styles.streakBadge}>
@@ -210,31 +254,43 @@ export default function StatsScreen() {
         </View>
       </View>
 
-      {/* ── Calendario ── */}
-      {habits.length > 0 && (
-        <View style={styles.calendarCard}>
-          {/* Encabezado mes */}
-          <View style={styles.calHeader}>
+      {/* ── Calendario (siempre visible) ── */}
+      <View style={styles.calendarCard}>
+
+        {/* Header con mes, resumen y navegación */}
+        <View style={styles.calHeader}>
+          <View>
             <Text style={styles.calTitle}>
               {MONTHS_ES[viewMonth]} {viewYear}
             </Text>
-            <View style={styles.calNav}>
-              <TouchableOpacity style={styles.calBtn} onPress={() => changeMonth(-1)}>
-                <Ionicons name="chevron-back" size={16} color="#166534" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.calBtn} onPress={() => changeMonth(1)}>
-                <Ionicons name="chevron-forward" size={16} color="#166534" />
-              </TouchableOpacity>
-            </View>
+            {monthSummary && (
+              <Text style={styles.calMonthSummary}>{monthSummary}</Text>
+            )}
           </View>
+          <View style={styles.calNav}>
+            <TouchableOpacity style={styles.calBtn} onPress={() => changeMonth(-1)}>
+              <Ionicons name="chevron-back" size={16} color="#166534" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.calBtnToday} onPress={goToToday}>
+              <Text style={styles.calBtnTodayText}>Hoy</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.calBtn} onPress={() => changeMonth(1)}>
+              <Ionicons name="chevron-forward" size={16} color="#166534" />
+            </TouchableOpacity>
+          </View>
+        </View>
 
-          {/* Selector de hábito */}
+        {/* Filtros por hábito (solo si hay hábitos) */}
+        {habits.length > 0 && (
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             style={styles.filterScroll}
           >
-            {[{ label: 'Todos', value: 'all' }, ...habits.map((h, i) => ({ label: h.name, value: String(i) }))].map(opt => (
+            {[
+              { label: 'Todos', value: 'all' },
+              ...habits.map((h, i) => ({ label: h.name, value: String(i) })),
+            ].map(opt => (
               <TouchableOpacity
                 key={opt.value}
                 style={[
@@ -254,66 +310,101 @@ export default function StatsScreen() {
               </TouchableOpacity>
             ))}
           </ScrollView>
+        )}
 
-          {/* Etiquetas de días */}
-          <View style={styles.calDayLabels}>
-            {DAYS_ES.map(d => (
-              <Text key={d} style={styles.calDayLabel}>{d}</Text>
-            ))}
+        {/* Etiquetas días de la semana */}
+        <View style={styles.calDayLabels}>
+          {DAYS_ES.map(d => (
+            <Text key={d} style={styles.calDayLabel}>{d}</Text>
+          ))}
+        </View>
+
+        {/* Grid de días */}
+        <View style={styles.calGrid}>
+          {calendarDays.map(cell => {
+            if (cell.empty) {
+              return <View key={cell.key} style={styles.calCell} />;
+            }
+
+            const cellStyle = cell.isFuture
+              ? styles.calCellFuture
+              : cell.type === 'full'
+              ? styles.calCellFull
+              : cell.type === 'partial'
+              ? styles.calCellPartial
+              : styles.calCellNone;
+
+            const textStyle = cell.isFuture
+              ? styles.calTextFuture
+              : cell.type === 'full'
+              ? styles.calTextFull
+              : styles.calText;
+
+            const showDots =
+              selectedHabit === 'all' &&
+              !cell.isFuture &&
+              cell.type === 'partial' &&
+              cell.habitsDone.length > 0;
+
+            return (
+              <View
+                key={cell.key}
+                style={[
+                  styles.calCell,
+                  cellStyle,
+                  cell.isToday && styles.calCellToday,
+                ]}
+              >
+                <Text style={textStyle}>{cell.day}</Text>
+
+                {showDots && (
+                  <View style={styles.miniDotsRow}>
+                    {cell.habitsDone.slice(0, 4).map((done, i) => (
+                      <View
+                        key={i}
+                        style={[
+                          styles.miniDot,
+                          { backgroundColor: done ? '#10b981' : 'transparent' },
+                        ]}
+                      />
+                    ))}
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </View>
+
+        {/* Leyenda */}
+        <View style={styles.calLegend}>
+          <View style={styles.legItem}>
+            <View style={[styles.legDot, { backgroundColor: '#10b981' }]} />
+            <Text style={styles.legText}>Completo</Text>
           </View>
-
-          {/* Celdas */}
-          <View style={styles.calGrid}>
-            {calendarDays.map(cell => {
-              if (cell.empty) {
-                return <View key={cell.key} style={styles.calCell} />;
-              }
-              const cellStyle = cell.isFuture
-                ? styles.calCellFuture
-                : cell.type === 'full'
-                ? styles.calCellFull
-                : cell.type === 'partial'
-                ? styles.calCellPartial
-                : styles.calCellNone;
-
-              const textStyle = cell.isFuture
-                ? styles.calTextFuture
-                : cell.type === 'full'
-                ? styles.calTextFull
-                : styles.calText;
-
-              return (
-                <View
-                  key={cell.key}
-                  style={[
-                    styles.calCell,
-                    cellStyle,
-                    cell.isToday && styles.calCellToday,
-                  ]}
-                >
-                  <Text style={textStyle}>{cell.day}</Text>
-                </View>
-              );
-            })}
+          <View style={styles.legItem}>
+            <View style={[styles.legDot, { backgroundColor: '#86efac' }]} />
+            <Text style={styles.legText}>Parcial</Text>
           </View>
-
-          {/* Leyenda */}
-          <View style={styles.calLegend}>
-            <View style={styles.legItem}>
-              <View style={[styles.legDot, { backgroundColor: '#10b981' }]} />
-              <Text style={styles.legText}>Completo</Text>
-            </View>
-            <View style={styles.legItem}>
-              <View style={[styles.legDot, { backgroundColor: '#86efac' }]} />
-              <Text style={styles.legText}>Parcial</Text>
-            </View>
-            <View style={[styles.legItem]}>
-              <View style={[styles.legDot, { backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#d1fae5' }]} />
-              <Text style={styles.legText}>Sin completar</Text>
-            </View>
+          <View style={styles.legItem}>
+            <View style={[styles.legDot, { backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#d1fae5' }]} />
+            <Text style={styles.legText}>Sin completar</Text>
+          </View>
+          <View style={styles.legItem}>
+            <View style={[styles.legDot, { borderWidth: 2, borderColor: '#10b981', backgroundColor: '#fff' }]} />
+            <Text style={styles.legText}>Hoy</Text>
           </View>
         </View>
-      )}
+
+        {/* Mensaje vacío si no hay hábitos */}
+        {habits.length === 0 && (
+          <View style={styles.calEmptyMsg}>
+            <Ionicons name="leaf-outline" size={22} color="#86efac" />
+            <Text style={styles.calEmptyText}>
+              Añade hábitos para ver tu progreso en el calendario
+            </Text>
+          </View>
+        )}
+      </View>
 
       {/* ── Motivación ── */}
       <View style={styles.motivationCard}>
@@ -337,7 +428,7 @@ export default function StatsScreen() {
   );
 }
 
-// ── Estilos ────────────────────────────────────────────────────────────────────
+// ── Estilos ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -353,7 +444,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
 
-  // ── Main card ──
+  // Card principal
   mainCard: {
     backgroundColor: '#fff',
     borderRadius: 24,
@@ -433,7 +524,7 @@ const styles = StyleSheet.create({
     color: '#86efac',
   },
 
-  // ── Stat grid ──
+  // Grid stats
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -473,7 +564,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // ── Calendario ──
+  // Calendario
   calendarCard: {
     backgroundColor: '#fff',
     borderRadius: 20,
@@ -496,9 +587,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#166534',
   },
+  calMonthSummary: {
+    fontSize: 12,
+    color: '#10b981',
+    marginTop: 2,
+  },
   calNav: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
+    alignItems: 'center',
   },
   calBtn: {
     width: 30,
@@ -509,6 +606,21 @@ const styles = StyleSheet.create({
     borderColor: '#86efac',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  calBtnToday: {
+    height: 30,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#86efac',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calBtnTodayText: {
+    fontSize: 12,
+    color: '#166534',
+    fontWeight: '600',
   },
   filterScroll: {
     marginBottom: 14,
@@ -556,6 +668,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 8,
     marginBottom: 4,
+    position: 'relative',
   },
   calCellFull: {
     backgroundColor: '#10b981',
@@ -587,10 +700,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#d1fae5',
   },
+  miniDotsRow: {
+    flexDirection: 'row',
+    gap: 2,
+    position: 'absolute',
+    bottom: 3,
+    alignSelf: 'center',
+  },
+  miniDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    opacity: 0.85,
+  },
   calLegend: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 14,
+    flexWrap: 'wrap',
+    gap: 10,
     marginTop: 12,
   },
   legItem: {
@@ -607,8 +734,24 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#888',
   },
+  calEmptyMsg: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 14,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#dcfce7',
+  },
+  calEmptyText: {
+    fontSize: 13,
+    color: '#86efac',
+    flex: 1,
+    flexWrap: 'wrap',
+  },
 
-  // ── Motivación ──
+  // Motivación
   motivationCard: {
     backgroundColor: '#fff',
     borderRadius: 20,
@@ -632,7 +775,7 @@ const styles = StyleSheet.create({
     color: '#166534',
   },
 
-  // ── Tip ──
+  // Consejo
   tipCard: {
     backgroundColor: '#ecfdf5',
     borderRadius: 18,

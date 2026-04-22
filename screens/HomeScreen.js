@@ -1,15 +1,17 @@
 // screens/HomeScreen.js
-import React, { useContext, useMemo } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-} from 'react-native';
-import { HabitContext } from '../context/HabitContext';
 import { Ionicons } from '@expo/vector-icons';
+import { useMemo } from 'react';
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
+import { useAuth } from '../context/AuthContext';
+import { useHabits } from '../context/HabitContext';
 
 // ── Anillo de progreso circular ───────────────────────────────────────────────
 function CircularProgress({ percentage, size = 72, strokeWidth = 6 }) {
@@ -19,7 +21,6 @@ function CircularProgress({ percentage, size = 72, strokeWidth = 6 }) {
 
   return (
     <Svg width={size} height={size}>
-      {/* Pista de fondo */}
       <Circle
         cx={size / 2}
         cy={size / 2}
@@ -28,7 +29,6 @@ function CircularProgress({ percentage, size = 72, strokeWidth = 6 }) {
         strokeWidth={strokeWidth}
         fill="none"
       />
-      {/* Arco de progreso */}
       <Circle
         cx={size / 2}
         cy={size / 2}
@@ -101,7 +101,8 @@ function WeekMini({ habits }) {
 
 // ── Pantalla principal ────────────────────────────────────────────────────────
 export default function HomeScreen({ navigation }) {
-  const { habits, toggleHabitToday } = useContext(HabitContext);
+  const { user, logout } = useAuth();
+  const { habits, toggleHabitCompletion } = useHabits();
 
   const today = new Date().toISOString().split('T')[0];
   const completedToday = habits.filter(h => h.completedDates?.includes(today)).length;
@@ -121,20 +122,45 @@ export default function HomeScreen({ navigation }) {
     return streak;
   }, [habits]);
 
+  const toggleHabitToday = (habitId) => {
+    toggleHabitCompletion(habitId, today);
+  };
+
+  // ── Cerrar sesión con Alert nativo de React Native ────────────────────────
+  const handleLogout = () => {
+    Alert.alert(
+      'Cerrar sesión',
+      '¿Estás seguro de que quieres cerrar sesión?',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Cerrar sesión',
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+            navigation.replace('Login');
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.headerTitle}>LifeCare</Text>
 
       <View style={styles.grid}>
 
-        {/* Card 1: Progreso — ahora con anillo circular */}
+        {/* Card 1: Progreso */}
         <View style={styles.card}>
           <View style={styles.iconCircle}>
             <Ionicons name="trending-up" size={30} color="#10b981" />
           </View>
           <Text style={styles.cardTitle}>Progreso Hoy</Text>
 
-          {/* Anillo + número centrado */}
           <View style={progressRing.wrapper}>
             <CircularProgress percentage={progress} size={80} strokeWidth={7} />
             <View style={progressRing.center}>
@@ -151,7 +177,7 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.cardSubtitle}>{progress}% completado</Text>
         </View>
 
-        {/* Card 2: Racha — sin cambios */}
+        {/* Card 2: Racha */}
         <View style={styles.card}>
           <View style={styles.iconCircle}>
             <Ionicons name="flame" size={30} color="#f59e0b" />
@@ -161,7 +187,7 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.cardSubtitle}>días consecutivos</Text>
         </View>
 
-        {/* Card 3: Mis Hábitos — sin cambios */}
+        {/* Card 3: Hábitos de Hoy */}
         <View style={[styles.card, styles.habitsCard]}>
           <View style={styles.iconCircle}>
             <Ionicons name="checkbox-outline" size={30} color="#10b981" />
@@ -177,7 +203,7 @@ export default function HomeScreen({ navigation }) {
                 style={styles.miniHabitRow}
                 onPress={() => toggleHabitToday(habit.id)}
               >
-                <Text style={styles.miniCategory}>{habit.categoryEmoji}</Text>
+                <Text style={styles.miniCategory}>{habit.categoryEmoji || '🌱'}</Text>
                 <Text style={[
                   styles.miniHabitName,
                   habit.completedDates?.includes(today) && styles.completedText,
@@ -201,7 +227,7 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* Card 4: Motivación — sin cambios */}
+        {/* Card 4: Motivación */}
         <View style={styles.card}>
           <View style={styles.iconCircle}>
             <Ionicons name="leaf" size={30} color="#10b981" />
@@ -216,7 +242,7 @@ export default function HomeScreen({ navigation }) {
 
       </View>
 
-      {/* ── Mini vista últimos 5 días ── */}
+      {/* Mini vista últimos 5 días */}
       {habits.length > 0 && <WeekMini habits={habits} />}
 
       <TouchableOpacity
@@ -225,11 +251,17 @@ export default function HomeScreen({ navigation }) {
       >
         <Text style={styles.statsButtonText}>Ver Estadísticas Detalladas →</Text>
       </TouchableOpacity>
+
+      {/* BOTÓN CERRAR SESIÓN */}
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <Ionicons name="log-out-outline" size={20} color="#ef4444" />
+        <Text style={styles.logoutText}>Cerrar Sesión</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
 
-// ── Estilos originales (sin tocar) ────────────────────────────────────────────
+// ==================== ESTILOS ====================
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f0fdf4', padding: 16 },
   headerTitle: { fontSize: 26, fontWeight: 'bold', color: '#166534', textAlign: 'center', marginBottom: 24 },
@@ -260,9 +292,21 @@ const styles = StyleSheet.create({
   recommendationText: { fontSize: 15, lineHeight: 23, textAlign: 'center', color: '#166534', marginTop: 8 },
   statsButton: { backgroundColor: '#10b981', padding: 16, borderRadius: 16, alignItems: 'center', marginTop: 4, marginBottom: 20 },
   statsButtonText: { color: '#fff', fontSize: 17, fontWeight: '600' },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    marginBottom: 40,
+    gap: 8,
+  },
+  logoutText: {
+    color: '#ef4444',
+    fontSize: 16,
+    fontWeight: '600',
+  },
 });
 
-// ── Estilos nuevos: anillo ────────────────────────────────────────────────────
 const progressRing = StyleSheet.create({
   wrapper: {
     width: 80,
@@ -283,7 +327,6 @@ const progressRing = StyleSheet.create({
   },
 });
 
-// ── Estilos nuevos: mini semana ───────────────────────────────────────────────
 const week = StyleSheet.create({
   container: {
     backgroundColor: '#fff',

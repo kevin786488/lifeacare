@@ -1,16 +1,16 @@
 // screens/AddHabitScreen.js
-import React, { useState, useContext } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
-  Alert,
-  ScrollView 
-} from 'react-native';
-import { HabitContext } from '../context/HabitContext';
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { useHabits } from '../context/HabitContext'; // ← Cambiado
 
 const categories = [
   { id: '1', name: 'Salud Física',    icon: 'fitness',          color: '#10b981' },
@@ -23,15 +23,34 @@ const categories = [
 const forbiddenWords = ['fumar', 'cigarrillo', 'alcohol', 'droga', 'marihuana', 'jugar', 'apostar', 'porno', 'masturbar', 'vicio', 'maldad', 'malo'];
 
 export default function AddHabitScreen({ navigation }) {
-  const { addHabit } = useContext(HabitContext);
-  
+  const { addHabit } = useHabits();   // ← Cambiado aquí
+
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedDays, setSelectedDays] = useState([]); // Nuevo: selección de días
+
+  const daysOfWeek = [
+    { id: 'monday',    name: 'Lunes',     short: 'L' },
+    { id: 'tuesday',   name: 'Martes',    short: 'M' },
+    { id: 'wednesday', name: 'Miércoles', short: 'X' },
+    { id: 'thursday',  name: 'Jueves',    short: 'J' },
+    { id: 'friday',    name: 'Viernes',   short: 'V' },
+    { id: 'saturday',  name: 'Sábado',    short: 'S' },
+    { id: 'sunday',    name: 'Domingo',   short: 'D' },
+  ];
 
   const isValidHabit = (habitName) => {
     const lowerName = habitName.toLowerCase().trim();
     return !forbiddenWords.some(word => lowerName.includes(word));
+  };
+
+  const toggleDay = (dayId) => {
+    if (selectedDays.includes(dayId)) {
+      setSelectedDays(selectedDays.filter(id => id !== dayId));
+    } else {
+      setSelectedDays([...selectedDays, dayId]);
+    }
   };
 
   const handleAddHabit = () => {
@@ -42,6 +61,11 @@ export default function AddHabitScreen({ navigation }) {
 
     if (!selectedCategory) {
       Alert.alert('Error', 'Por favor selecciona una categoría');
+      return;
+    }
+
+    if (selectedDays.length === 0) {
+      Alert.alert('Error', 'Por favor selecciona al menos un día de la semana');
       return;
     }
 
@@ -60,15 +84,18 @@ export default function AddHabitScreen({ navigation }) {
       category: selectedCategory.name,
       categoryIcon: selectedCategory.icon,
       categoryColor: selectedCategory.color,
+      days: selectedDays,                    // ← Guardamos los días
     });
 
     Alert.alert('¡Éxito!', `"${name}" ha sido creado correctamente`, [
       { text: 'OK', onPress: () => navigation.goBack() }
     ]);
 
+    // Reset
     setName('');
     setDescription('');
     setSelectedCategory(null);
+    setSelectedDays([]);
   };
 
   return (
@@ -107,6 +134,31 @@ export default function AddHabitScreen({ navigation }) {
           ))}
         </View>
 
+        {/* Selección de días */}
+        <Text style={styles.label}>¿Qué días quieres cumplir este hábito?</Text>
+        <View style={styles.daysContainer}>
+          {daysOfWeek.map((day) => {
+            const isSelected = selectedDays.includes(day.id);
+            return (
+              <TouchableOpacity
+                key={day.id}
+                style={[
+                  styles.dayButton,
+                  isSelected && styles.dayButtonSelected
+                ]}
+                onPress={() => toggleDay(day.id)}
+              >
+                <Text style={[styles.dayShort, isSelected && styles.dayShortSelected]}>
+                  {day.short}
+                </Text>
+                <Text style={[styles.dayName, isSelected && styles.dayNameSelected]}>
+                  {day.name}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
         {/* Nombre */}
         <Text style={styles.label}>Nombre del hábito</Text>
         <TextInput
@@ -130,9 +182,12 @@ export default function AddHabitScreen({ navigation }) {
 
         {/* Botón Crear */}
         <TouchableOpacity 
-          style={[styles.createButton, (!selectedCategory || !name.trim()) && styles.createButtonDisabled]} 
+          style={[
+            styles.createButton, 
+            (!selectedCategory || !name.trim() || selectedDays.length === 0) && styles.createButtonDisabled
+          ]} 
           onPress={handleAddHabit}
-          disabled={!selectedCategory || !name.trim()}
+          disabled={!selectedCategory || !name.trim() || selectedDays.length === 0}
         >
           <Ionicons name="checkmark-circle" size={24} color="#fff" />
           <Text style={styles.createButtonText}>Crear Hábito</Text>
@@ -206,6 +261,47 @@ const styles = StyleSheet.create({
   categoryNameSelected: {
     color: '#ffffff',
   },
+
+  // Estilos para los días
+  daysContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  dayButton: {
+    width: '31%',
+    backgroundColor: '#ffffff',
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#d1fae5',
+    marginBottom: 8,
+  },
+  dayButtonSelected: {
+    backgroundColor: '#10b981',
+    borderColor: '#10b981',
+  },
+  dayShort: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#166534',
+  },
+  dayShortSelected: {
+    color: '#ffffff',
+  },
+  dayName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#166534',
+    marginTop: 4,
+  },
+  dayNameSelected: {
+    color: '#ffffff',
+  },
+
   input: {
     backgroundColor: '#ffffff',
     borderWidth: 1,

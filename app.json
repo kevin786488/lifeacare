@@ -4,6 +4,9 @@
     "slug": "lifecare",
     "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "light"
+    "userInterfaceStyle": "light",
+    "plugins": [
+      "@react-native-community/datetimepicker"
+    ]
   }
 }

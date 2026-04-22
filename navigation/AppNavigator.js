@@ -1,9 +1,9 @@
 // navigation/AppNavigator.js
-import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import HomeScreen from '../screens/HomeScreen';
 import AddHabitScreen from '../screens/AddHabitScreen';
+import HomeScreen from '../screens/HomeScreen';
+import LoginScreen from '../screens/LoginScreen';
 import StatsScreen from '../screens/StatsScreen';
 
 const Stack = createNativeStackNavigator();
@@ -11,18 +11,23 @@ const Stack = createNativeStackNavigator();
 export default function AppNavigator() {
   return (
     <Stack.Navigator
-      initialRouteName="Home"
+      initialRouteName="Login"
       screenOptions={{
         headerStyle: { backgroundColor: '#f0fdf4' },
         headerTintColor: '#166534',
         headerTitleStyle: { fontWeight: 'bold', color: '#166534' },
-        headerShadowVisible: false, // sin línea separadora, se ve más limpio
+        headerShadowVisible: false,
       }}
     >
       <Stack.Screen
+        name="Login"
+        component={LoginScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
         name="Home"
         component={HomeScreen}
-        options={{ headerShown: false }} // HomeScreen ya tiene su propio título "LifeCare"
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="AddHabit"
